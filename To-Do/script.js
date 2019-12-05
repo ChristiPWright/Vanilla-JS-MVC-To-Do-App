@@ -1,24 +1,32 @@
-/**
- * @class Model
- *
- * Manages the data of the application.
- */
 
 class Model {
   
   //updated constructor from this.todos = array of object dummy data
   constructor() {
-      this.todos = JSON.parse(localStorage.getItem('todos')) 
+      this.todos = JSON.parse(localStorage.getItem('todos')) || []
+  }
+  
+  //bind event handlers
+  bindTodoListChanges(callback){
+      this.onTodoListChanged = callback
+  }
+  
+    //add private method to update localstorage value
+  privateCommit(todos){
+      this.onTodoListChanged(todos)
+      localStorage.setItem('todos', JSON.stringify(todos))
   }
   
   addToDo(todoText){
-    const todo = {
-        id: this.todos.length > 0 ? this.todos[this.todos.length - 1].id + 1 : 1,
-        text: todoText,
-        complete: false
-    }
-    this.todos.push(todo)
-  }
+     const todo = {
+         id: this.todos.length > 0 ? this.todos[this.todos.length - 1].id + 1 : 1,
+         text: todoText,
+         complete: false
+     }
+     this.todos.push(todo)
+       
+     this.privateCommit(this.todos)
+   }
   
   
   
@@ -26,30 +34,23 @@ class Model {
       this.todos = this.todos.map(todo =>
         todo.id === id ? {id: todo.id, text: updatedText, complete: todo.complete } : todo
       )
+        this.privateCommit(this.todos)
   }
+  
   //localstorage change - 
   deleteTodo(id) {
       this.todos = this.todos.filter(todo => todo.id !== id)
       
-      this.onTodoListChanged(this.todos)
+      this.privateCommit(this.todos)
   }
   
   completeTodo(id) {
       this.todos = this.todos.map(todo =>
         todo.id === id ? {id: todo.id, text: todo.text, complete: !todo.complete} : todo
       )
+      this.privateCommit(this.todos)
   }
   
-  //bind event handlers
-  bindTodoListChanges(callback){
-      this.onTodoListChanged= callback
-  }
-  
-  //add private method to update localstorage value
-  privateCommit(todos){
-      this.onTodoListChanged(todos)
-      localStorage.setItem('todos', JSON.stringify(todos))
-  }
 }
 
 class View {
@@ -72,32 +73,30 @@ class View {
       this.submitButton = this.createElement('button')
       this.submitButton.textContent = 'Submit'
       
-      //visual of todo list
-      this.todoList =this.createElement('ul', 'todo-list')
-      
       //add input and submit
       this.form.append(this.input, this.submitButton)
+      
+      //visual of todo list
+      this.todoList = this.createElement('ul', 'todo-list')
+      
       
       //add title, form, and todo list to app
       this.app.append(this.title, this.form, this.todoList)
       
       //add local storage
-      this._temporaryTodoText
+      this._temporaryTodoText = ''
       this._initLocalListeners()
   }
   
-  
-  //update temporary state
-  _initLocalListeners() {
-      this.todoList.addEventListener('input', event => {
-          if(event.target.className === 'editable'){
-              this._temporaryTodoText = event.target.innerText
-          }
-      })
+  get privateText(){
+      return this.input.value
   }
   
+  privateResetInput(){
+      this.input.value = ''
+  }
   
-  
+
   createElement(tag, className){
       const element = document.createElement(tag)
       if(className) element.classList.add(className)
@@ -109,14 +108,6 @@ class View {
       const element = document.querySelector(selector)
       
       return element
-  }
-  
-  get privateText(){
-      return this.input.value
-  }
-  
-  privateResetInput(){
-      this.input.value = ''
   }
   
   displayTodo(todos){
@@ -138,7 +129,7 @@ class View {
               //Each todo checkbox
               const checkbox = this.createElement('input')
               checkbox.type = "checkbox"
-              checkbox.check = todo.complete
+              checkbox.checked = todo.complete
               
               //todo item in span tag thats editable
               const span = this.createElement('span')
@@ -163,6 +154,16 @@ class View {
               this.todoList.append(li)
           })
       }
+      
+  }
+  
+  //update temporary state
+  _initLocalListeners() {
+      this.todoList.addEventListener('input', event => {
+          if(event.target.className === 'editable'){
+              this._temporaryTodoText = event.target.innerText
+          }
+      })
   }
   
   //event handlers
@@ -172,7 +173,7 @@ class View {
           
           if(this.privateText) {
               handler(this.privateText)
-              this.privateResetInput
+              this.privateResetInput()
           }
       })
   }
@@ -198,7 +199,7 @@ class View {
       })
   }
   
-  bindToggleTodo(handler){
+  bindCompleteTodo(handler){
       this.todoList.addEventListener('change', event => {
           if(event.target.type === 'checkbox'){
               const id = parseInt(event.target.parentElement.id)
@@ -215,6 +216,13 @@ class Controller {
   constructor(model, view) {
     this.model = model
     this.view = view
+    
+    //bind event handlers
+    this.view.bindAddTodo(this.handleAddTodo)
+    this.view.bindEditTodo(this.handleEditTodo)
+    this.view.bindDeleteTodo(this.handleDeleteTodo)
+    this.view.bindCompleteTodo(this.handleCompleteTodo)
+    this.model.bindTodoListChanges(this.onTodoListChanged)
     
     //display initial todos
     this.onTodoListChanged(this.model.todos)
@@ -239,13 +247,6 @@ class Controller {
   handleCompleteTodo = id => {
       this.model.completeTodo(id)
   }
-  
-  //bind event handlers
-  this.view.bindAddTodo(this.handleAddTodo)
-  this.view.bindEditTodo(this.handleEditTodo)
-  this.view.bindDeleteTodo(this.handeDeleteTodo)
-  this.view.bindToggleTodo(this.handleCompleteTodo)
-  this.model.bindTodoListChanges(this.onTodoListChanged)
   
 }
 
