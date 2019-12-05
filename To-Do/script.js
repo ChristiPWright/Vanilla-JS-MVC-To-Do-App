@@ -5,11 +5,10 @@
  */
 
 class Model {
+  
+  //updated constructor from this.todos = array of object dummy data
   constructor() {
-      this.todos =[
-          {id:1, text: "Order xmas gifts", complete: true},
-          {id:1, text: "Wrap xmas gifts", complete: false}
-          ]
+      this.todos = JSON.parse(localStorage.getItem('todos')) 
   }
   
   addToDo(todoText){
@@ -21,12 +20,14 @@ class Model {
     this.todos.push(todo)
   }
   
+  
+  
   editTodo(id, updatedText) {
       this.todos = this.todos.map(todo =>
         todo.id === id ? {id: todo.id, text: updatedText, complete: todo.complete } : todo
       )
   }
-  
+  //localstorage change - 
   deleteTodo(id) {
       this.todos = this.todos.filter(todo => todo.id !== id)
       
@@ -44,6 +45,11 @@ class Model {
       this.onTodoListChanged= callback
   }
   
+  //add private method to update localstorage value
+  privateCommit(todos){
+      this.onTodoListChanged(todos)
+      localStorage.setItem('todos', JSON.stringify(todos))
+  }
 }
 
 class View {
@@ -74,7 +80,23 @@ class View {
       
       //add title, form, and todo list to app
       this.app.append(this.title, this.form, this.todoList)
+      
+      //add local storage
+      this._temporaryTodoText
+      this._initLocalListeners()
   }
+  
+  
+  //update temporary state
+  _initLocalListeners() {
+      this.todoList.addEventListener('input', event => {
+          if(event.target.className === 'editable'){
+              this._temporaryTodoText = event.target.innerText
+          }
+      })
+  }
+  
+  
   
   createElement(tag, className){
       const element = document.createElement(tag)
@@ -155,6 +177,17 @@ class View {
       })
   }
   
+  bindEditTodo(handler){
+      this.todoList.addEventListener('focusout', event =>{
+          if (this._temporaryTodoText){
+              const id = parseInt(event.target.parentElement.id)
+              
+              handler(id, this._temporaryTodoText)
+              this._temporaryTodoText = ''
+          }
+      })
+  }
+  
   bindDeleteTodo(handler){
       this.todoList.addEventListener('click', event => {
           if(event.target.className === 'delete') {
@@ -174,6 +207,7 @@ class View {
           }
       })
   }
+  
   
 }
 
@@ -208,6 +242,7 @@ class Controller {
   
   //bind event handlers
   this.view.bindAddTodo(this.handleAddTodo)
+  this.view.bindEditTodo(this.handleEditTodo)
   this.view.bindDeleteTodo(this.handeDeleteTodo)
   this.view.bindToggleTodo(this.handleCompleteTodo)
   this.model.bindTodoListChanges(this.onTodoListChanged)
